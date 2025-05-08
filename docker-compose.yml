@@ -1,46 +1,65 @@
 services:
   zookeeper:
-    image: wurstmeister/zookeeper
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
     ports:
       - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
-    image: wurstmeister/kafka
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
     ports:
-      - "9093:9093"
-    environment:
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9093
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9093
+      - "9092:9092"
     depends_on:
       - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    container_name: kafdrop
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+      JVM_OPTS: "-Xms32M -Xmx64M"
+    depends_on:
+      - kafka
 
   pyspark:
     build: ./pyspark
+    container_name: pyspark
     ports:
       - "4040:4040"
       - "8888:8888"
-    depends_on:
-      - kafka
     volumes:
       - ./notebooks:/home/notebooks
+    depends_on:
+      - kafka
 
   airflow:
     build: ./airflow
+    container_name: airflow
     ports:
       - "8080:8080"
-    depends_on:
-      - kafka
-      - zookeeper
     environment:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    command: ["bash", "-c", "airflow db init && airflow webserver"]  # Ensure db init and webserver are started
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
-    networks:
-      - airflow_network
+    command: ["bash", "-c", "airflow db init && airflow webserver"]
+    depends_on:
+      - kafka
+      - zookeeper
 
 networks:
-  airflow_network:
+  default:
     driver: bridge
