@@ -1,0 +1,46 @@
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9093
+    depends_on:
+      - zookeeper
+
+  pyspark:
+    build: ./pyspark
+    ports:
+      - "4040:4040"
+      - "8888:8888"
+    depends_on:
+      - kafka
+    volumes:
+      - ./notebooks:/home/notebooks
+
+  airflow:
+    build: ./airflow
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+      - zookeeper
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    command: ["bash", "-c", "airflow db init && airflow webserver"]  # Ensure db init and webserver are started
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+    networks:
+      - airflow_network
+
+networks:
+  airflow_network:
+    driver: bridge
