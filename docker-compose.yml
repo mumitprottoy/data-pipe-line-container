@@ -19,9 +19,22 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: datapipeline
+      MYSQL_USER: sparkuser
+      MYSQL_PASSWORD: sparkpass
+    ports:
+      - "3307:3306"  # Changed host port to avoid conflict
+    volumes:
+      - mysql_data:/var/lib/mysql
 
   pyspark:
     build: ./pyspark
@@ -33,6 +46,10 @@ services:
       - ./notebooks:/home/notebooks
     depends_on:
       - kafka
+      - mysql
+    environment:
+      - SPARK_MASTER=spark://pyspark:7077
+      - PYSPARK_PYTHON=python3.11
 
   airflow:
     build: ./airflow
@@ -48,7 +65,16 @@ services:
     depends_on:
       - kafka
       - zookeeper
+      - mysql
 
-networks:
-  default:
-    driver: bridge
+  kafka-client:
+    build:
+      context: ./kafka
+    container_name: kafka-client
+    depends_on:
+      - kafka
+    volumes:
+      - ./kafka:/app
+
+volumes:
+  mysql_data:

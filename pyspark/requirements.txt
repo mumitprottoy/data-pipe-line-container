@@ -1,0 +1,5 @@
+jupyter
+pyspark
+kafka-python
+requests
+pandas

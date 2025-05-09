@@ -8,7 +8,7 @@ from kafka.errors import TopicAlreadyExistsError
 
 # configs
 FETCH_INTERVAL = 30  # seconds
-KAFKA_BOOTSTRAP_SERVERS = ['localhost:9092']
+KAFKA_BOOTSTRAP_SERVERS = ['kafka:9092']
 ENCODING = 'utf-8'
 
 
@@ -18,7 +18,7 @@ log_interval_msg = lambda interval=FETCH_INTERVAL: print(f"⏱️ Waiting {inter
 log_data_sending_success_msg = lambda endpoint_name, topic: print(f"📤 Sent data from {endpoint_name} → Kafka topic [{topic}]")
 log_topic_creation_msg = lambda new_topics: print(f"✅ Created topics: {[t.name for t in new_topics]}")
 log_fetching_error_msg = lambda endpoint_name, e: print(f"❌ Error fetching {endpoint_name}: {e}")
-
+log_graceful_bye = lambda: print("\n👋 Goodbye! Script stopped by Keyboard interruption. Fetching stopped.")
 
 # API endpoints
 api_endpoints = {
@@ -70,19 +70,20 @@ def fetch_and_send_to_kafka(endpoint_name, url, topic):
             for item in data:
                 producer.send(topic, value=item)
         else: producer.send(topic, value=data)
-        log_data_sending_success_msg(endpoint_name)
+        log_data_sending_success_msg(endpoint_name, topic)
     except requests.exceptions.RequestException as e: log_fetching_error_msg(endpoint_name, e)
 
 
 def main():
-    create_topics_if_needed()
-    while True:
-        for endpoint, url in api_endpoints.items():
-            fetch_and_send_to_kafka(endpoint, url, topics[endpoint])
-        producer.flush()
-        log_interval_msg()
-        time.sleep(FETCH_INTERVAL)
-
+    try:
+        create_topics_if_needed()
+        while True:
+            for endpoint, url in api_endpoints.items():
+                fetch_and_send_to_kafka(endpoint, url, topics[endpoint])
+            producer.flush()
+            log_interval_msg()
+            time.sleep(FETCH_INTERVAL)
+    except KeyboardInterrupt: log_graceful_bye()
 
 if __name__ == "__main__":
     main()
