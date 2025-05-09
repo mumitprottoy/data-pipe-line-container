@@ -23,17 +23,6 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
-  kafdrop:
-    image: obsidiandynamics/kafdrop:latest
-    container_name: kafdrop
-    ports:
-      - "9000:9000"
-    environment:
-      KAFKA_BROKERCONNECT: kafka:9092
-      JVM_OPTS: "-Xms32M -Xmx64M"
-    depends_on:
-      - kafka
-
   pyspark:
     build: ./pyspark
     container_name: pyspark
